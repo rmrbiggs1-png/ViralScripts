@@ -1,21 +1,32 @@
 import { Link } from "@tanstack/react-router";
 import { SignInButton, SignUpButton, UserButton, useAuth } from "@clerk/clerk-react";
 import { useState, useEffect } from "react";
+import { PRICING } from "~/lib/pricing";
 
 function AuthButtons() {
   const { isSignedIn } = useAuth();
 
   if (isSignedIn) {
     return (
-      <UserButton
-        appearance={{
-          elements: {
-            userButtonAvatarBox: "h-8 w-8",
-            userButtonTrigger:
-              "focus:shadow-none rounded-full ring-2 ring-violet-600/30 hover:ring-violet-500/50 transition-all",
-          },
-        }}
-      />
+      <div className="flex items-center gap-2">
+        <a
+          href={PRICING.starter.stripeLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-3 py-1.5 text-xs font-semibold text-white shadow-lg shadow-violet-600/20 transition-all hover:from-violet-500 hover:to-fuchsia-500 sm:px-4 sm:py-2 sm:text-sm"
+        >
+          Upgrade
+        </a>
+        <UserButton
+          appearance={{
+            elements: {
+              userButtonAvatarBox: "h-8 w-8",
+              userButtonTrigger:
+                "focus:shadow-none rounded-full ring-2 ring-violet-600/30 hover:ring-violet-500/50 transition-all",
+            },
+          }}
+        />
+      </div>
     );
   }
 

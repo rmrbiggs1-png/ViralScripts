@@ -1,7 +1,6 @@
 /**
  * Pricing configuration for ViralScripts.
- * Stripe payment links can be set via env vars or defaults below.
- * The lead should replace these with actual Stripe payment links.
+ * Stripe payment links are set by the lead.
  */
 
 export const PRICING = {
@@ -15,7 +14,7 @@ export const PRICING = {
     name: "Starter",
     monthlyGenerations: 30,
     price: 19,
-    stripeLink: import.meta.env.NEXT_PUBLIC_STRIPE_STARTER_LINK as string | undefined,
+    stripeLink: "https://buy.stripe.com/3cI9AVfKWfpMgEV2LF5ZC00",
     features: [
       "30 generations/month",
       "All tone options",
@@ -27,7 +26,7 @@ export const PRICING = {
     name: "Pro",
     monthlyGenerations: 100,
     price: 49,
-    stripeLink: import.meta.env.NEXT_PUBLIC_STRIPE_PRO_LINK as string | undefined,
+    stripeLink: "https://buy.stripe.com/aFa5kF8iuelI88p71V5ZC01",
     features: [
       "100 generations/month",
       "All tone options",

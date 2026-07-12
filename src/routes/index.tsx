@@ -50,7 +50,7 @@ function AuthenticatedHome() {
       });
 
       if (!res.ok) {
-        if (res.status === 429) {
+        if (res.status === 402 || res.status === 429) {
           setLimitReached(true);
           return;
         }

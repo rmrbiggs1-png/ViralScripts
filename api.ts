@@ -1,4 +1,5 @@
 // /home/team/shared/site/api.ts
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
 const PORT = 3001;
 const FREE_LIMIT = 3; // Free users get 3 generations per month
@@ -17,16 +18,20 @@ type UsageStore = Record<string, UsageRecord>;
 
 function loadUsage(): UsageStore {
   try {
-    const raw = Bun.file(USAGE_FILE);
-    if (raw.size === 0) return {};
-    return JSON.parse(Bun.readTextFileSync(USAGE_FILE) || "{}");
+    if (!existsSync(USAGE_FILE)) return {};
+    const raw = readFileSync(USAGE_FILE, "utf8");
+    return JSON.parse(raw || "{}");
   } catch {
     return {};
   }
 }
 
 function saveUsage(store: UsageStore): void {
-  Bun.writeSync(USAGE_FILE, JSON.stringify(store, null, 2));
+  try {
+    writeFileSync(USAGE_FILE, JSON.stringify(store, null, 2));
+  } catch (e) {
+    console.error("Failed to save usage data:", e);
+  }
 }
 
 /**
