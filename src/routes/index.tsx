@@ -6,6 +6,7 @@ import Header from "~/components/Header";
 import GeneratorForm from "~/components/GeneratorForm";
 import ResultsSection from "~/components/ResultsSection";
 import UpgradePrompt from "~/components/UpgradePrompt";
+import WaitlistForm from "~/components/WaitlistForm";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -60,6 +61,20 @@ function AuthenticatedHome() {
 
       const result: Script[] = await res.json();
       setScripts(result);
+
+      // Fire-and-forget analytics tracking
+      fetch("/api/analytics/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: "generate",
+          product: data.product,
+          audience: data.audience,
+          painPoint: data.painPoint,
+          tone: data.tone,
+          userId: data.userId,
+        }),
+      }).catch(() => {});
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Something went wrong";
@@ -88,6 +103,21 @@ function AuthenticatedHome() {
             Sign In to Get Started
           </button>
         </SignInButton>
+
+        {/* Divider */}
+        <div className="my-10 flex items-center gap-3">
+          <div className="h-px flex-1 bg-gray-800" />
+          <span className="text-xs font-medium text-gray-500">or join the waitlist</span>
+          <div className="h-px flex-1 bg-gray-800" />
+        </div>
+
+        {/* Waitlist */}
+        <div className="mx-auto max-w-sm text-left">
+          <p className="mb-4 text-center text-sm text-gray-400">
+            Get early access and exclusive updates
+          </p>
+          <WaitlistForm />
+        </div>
       </div>
     );
   }
