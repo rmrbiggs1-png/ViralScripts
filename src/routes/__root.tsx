@@ -7,6 +7,7 @@ import {
 import type { ReactNode } from "react";
 
 import appCss from "~/styles/app.css?url";
+import ClerkProviderWrapper from "~/lib/clerk";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -23,9 +24,11 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   return (
-    <RootDocument>
-      <Outlet />
-    </RootDocument>
+    <ClerkProviderWrapper>
+      <RootDocument>
+        <Outlet />
+      </RootDocument>
+    </ClerkProviderWrapper>
   );
 }
 
