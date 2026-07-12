@@ -1,10 +1,78 @@
 // /home/team/shared/site/api.ts
 
 const PORT = 3001;
+const FREE_LIMIT = 3; // Free users get 3 generations per month
+const USAGE_FILE = "/home/team/shared/site/.usage.json";
 
-// Mock scripts (used when no ANTHROPIC_API_KEY is set)
+// ── Usage Tracking ──────────────────────────────────────────────────────────
+
+interface UsageRecord {
+  /** Timestamps (ms) of each generation request this month window */
+  generations: number[];
+  /** When the current month window started */
+  windowStart: number;
+}
+
+type UsageStore = Record<string, UsageRecord>;
+
+function loadUsage(): UsageStore {
+  try {
+    const raw = Bun.file(USAGE_FILE);
+    if (raw.size === 0) return {};
+    return JSON.parse(Bun.readTextFileSync(USAGE_FILE) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveUsage(store: UsageStore): void {
+  Bun.writeSync(USAGE_FILE, JSON.stringify(store, null, 2));
+}
+
+/**
+ * Get or create a usage record for the given client key (IP or user ID).
+ * Resets the window if it's been more than 30 days since windowStart.
+ */
+function getOrCreateRecord(store: UsageStore, clientKey: string): UsageRecord {
+  const now = Date.now();
+  const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+  let record = store[clientKey];
+
+  if (!record || now - record.windowStart > THIRTY_DAYS) {
+    record = { generations: [], windowStart: now };
+    store[clientKey] = record;
+  }
+
+  return record;
+}
+
+/**
+ * Check if a request is from a paid user.
+ * Paid users are identified by sending an x-api-key header matching
+ * a key listed in the VIRALSCRIPTS_PAID_KEYS env var (comma-separated).
+ */
+function isPaidRequest(request: Request): boolean {
+  const paidKeys = process.env.VIRALSCRIPTS_PAID_KEYS || "";
+  if (!paidKeys) return false;
+  const apiKey = request.headers.get("x-api-key");
+  if (!apiKey) return false;
+  return paidKeys.split(",").map((k) => k.trim()).includes(apiKey);
+}
+
+/**
+ * Get the client identifier for usage tracking.
+ * Uses x-forwarded-for (proxied) or the direct connection remote address.
+ */
+function getClientKey(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  // Fall back to a hash of the connection info
+  return `ip:${request.headers.get("cf-connecting-ip") || "unknown"}`;
+}
+
+// ── Mock Scripts ────────────────────────────────────────────────────────────
+
 function generateMockScripts(product: string, audience: string, painPoint: string, tone: string) {
-  // Return 3 distinct mock scripts based on the inputs
   return [
     {
       hook: `Stop letting ${painPoint.toLowerCase()} ruin your mornings.`,
@@ -30,7 +98,8 @@ function generateMockScripts(product: string, audience: string, painPoint: strin
   ];
 }
 
-// Real AI generation (used when ANTHROPIC_API_KEY is set)
+// ── AI Generation (Anthropic) ───────────────────────────────────────────────
+
 async function generateWithAI(product: string, audience: string, painPoint: string, tone: string) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -80,7 +149,6 @@ Format:
   const text = data.content[0].text;
   
   try {
-    // Try to parse JSON from the response
     const jsonMatch = text.match(/\[[\s\S]*\]/);
     let scripts;
     if (jsonMatch) {
@@ -89,7 +157,6 @@ Format:
       scripts = JSON.parse(text);
     }
 
-    // Normalize: ensure onScreenText is always a string (not an array)
     return scripts.map((s: any) => ({
       ...s,
       onScreenText: Array.isArray(s.onScreenText) ? s.onScreenText.join(" • ") : s.onScreenText,
@@ -100,16 +167,32 @@ Format:
   }
 }
 
-// Start the server
+// ── Usage Response Helpers ──────────────────────────────────────────────────
+
+function buildUsageHeaders(
+  used: number,
+  limit: number | null,
+  remaining: number | null
+): Record<string, string> {
+  return {
+    "X-RateLimit-Limit": String(limit ?? "unlimited"),
+    "X-RateLimit-Remaining": String(remaining ?? "unlimited"),
+    "X-RateLimit-Used": String(used),
+    "X-RateLimit-Reset": String(Math.ceil(Date.now() / 1000) + 30 * 24 * 60 * 60),
+  };
+}
+
+// ── Server ──────────────────────────────────────────────────────────────────
+
 const server = Bun.serve({
   port: PORT,
   async fetch(request) {
-    // CORS — open to all origins (only accessible internally via the proxy)
-    const headers = {
+    // CORS — open to all origins
+    const headers: Record<string, string> = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Content-Type": "application/json"
+      "Access-Control-Allow-Headers": "Content-Type, x-api-key",
+      "Content-Type": "application/json",
     };
 
     if (request.method === "OPTIONS") {
@@ -131,13 +214,45 @@ const server = Bun.serve({
         );
       }
 
-      console.log(`Generating scripts for: ${product} (${tone})`);
+      const paid = isPaidRequest(request);
+      const clientKey = getClientKey(request);
+      const usageStore = loadUsage();
+      const record = getOrCreateRecord(usageStore, clientKey);
+
+      const used = record.generations.length;
+      const limit = paid ? null : FREE_LIMIT;
+      const remaining = paid ? null : Math.max(0, FREE_LIMIT - used);
+
+      // Merge usage headers into response headers
+      const responseHeaders = { ...headers, ...buildUsageHeaders(used, limit, remaining) };
+
+      // Enforce free tier limit
+      if (!paid && used >= FREE_LIMIT) {
+        return new Response(
+          JSON.stringify({
+            error: "Free tier limit reached",
+            message: `You've used all ${FREE_LIMIT} free generations this month. Upgrade to Pro for unlimited script generation.`,
+            usage: { used, limit: FREE_LIMIT, remaining: 0 },
+          }),
+          { headers: responseHeaders, status: 429 }
+        );
+      }
+
+      console.log(
+        `Generating scripts for: ${product} (${tone}) — ` +
+        `client:${clientKey.slice(0, 20)} paid:${paid} used:${used}/${limit ?? "∞"}`
+      );
 
       const scripts = process.env.ANTHROPIC_API_KEY
         ? await generateWithAI(product, audience, painPoint, tone)
         : generateMockScripts(product, audience, painPoint, tone);
 
-      return new Response(JSON.stringify(scripts), { headers, status: 200 });
+      // Record the generation
+      record.generations.push(Date.now());
+      usageStore[clientKey] = record;
+      saveUsage(usageStore);
+
+      return new Response(JSON.stringify(scripts), { headers: responseHeaders, status: 200 });
     } catch (err) {
       console.error("Error:", err);
       return new Response(
@@ -149,3 +264,5 @@ const server = Bun.serve({
 });
 
 console.log(`🚀 ViralScripts API running on http://0.0.0.0:${PORT}`);
+console.log(`📊 Free tier limit: ${FREE_LIMIT} generations/month per client`);
+console.log(`🔑 Paid tier: enabled via VIRALSCRIPTS_PAID_KEYS env var`);

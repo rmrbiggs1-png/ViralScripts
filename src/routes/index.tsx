@@ -5,6 +5,7 @@ import type { GenerateRequest, Script, Tone } from "~/types";
 import Header from "~/components/Header";
 import GeneratorForm from "~/components/GeneratorForm";
 import ResultsSection from "~/components/ResultsSection";
+import UpgradePrompt from "~/components/UpgradePrompt";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -12,7 +13,7 @@ export const Route = createFileRoute("/")({
 
 function AuthenticatedHome() {
   // This component is only rendered on the client, so Clerk hooks are safe
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, userId } = useAuth();
 
   // Form state (lifted up so regenerate can reuse it)
   const [product, setProduct] = useState("");
@@ -24,6 +25,7 @@ function AuthenticatedHome() {
   const [scripts, setScripts] = useState<Script[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
 
   async function handleGenerate() {
     if (!isSignedIn) return;
@@ -33,10 +35,12 @@ function AuthenticatedHome() {
       audience: audience.trim(),
       painPoint: painPoint.trim(),
       tone,
+      userId: userId || undefined,
     };
 
     setIsLoading(true);
     setError(null);
+    setLimitReached(false);
 
     try {
       const res = await fetch("/api/generate", {
@@ -46,6 +50,10 @@ function AuthenticatedHome() {
       });
 
       if (!res.ok) {
+        if (res.status === 429) {
+          setLimitReached(true);
+          return;
+        }
         const msg = await res.text().catch(() => "");
         throw new Error(msg || `Server responded with ${res.status}`);
       }
@@ -100,7 +108,7 @@ function AuthenticatedHome() {
       />
 
       {/* Error state */}
-      {error && (
+      {error && !limitReached && (
         <div className="mx-auto mb-8 max-w-2xl rounded-lg border border-red-800/50 bg-red-900/20 px-5 py-4 text-center">
           <p className="text-sm text-red-400">
             <span className="font-semibold">Error:</span> {error}
@@ -108,6 +116,13 @@ function AuthenticatedHome() {
           <p className="mt-1 text-xs text-red-500">
             Make sure the backend server is running on port 3001.
           </p>
+        </div>
+      )}
+
+      {/* Limit reached — show upgrade prompt */}
+      {limitReached && (
+        <div className="mb-8">
+          <UpgradePrompt message="You've used all your free generations this month. Upgrade to keep creating viral scripts!" />
         </div>
       )}
 

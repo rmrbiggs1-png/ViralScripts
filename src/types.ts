@@ -21,4 +21,5 @@ export interface GenerateRequest {
   audience: string;
   painPoint: string;
   tone: Tone;
+  userId?: string;
 }
