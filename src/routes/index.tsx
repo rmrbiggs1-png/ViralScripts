@@ -8,6 +8,7 @@ import ResultsSection from "~/components/ResultsSection";
 import UpgradePrompt from "~/components/UpgradePrompt";
 import WaitlistForm from "~/components/WaitlistForm";
 import StatsBar from "~/components/StatsBar";
+import { PageSkeleton, ResultsSkeleton } from "~/components/SkeletonLoader";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -158,14 +159,18 @@ function AuthenticatedHome() {
       )}
 
       {/* Results */}
-      <ResultsSection
-        scripts={scripts}
-        onRegenerate={handleGenerate}
-        isLoading={isLoading}
-      />
+      {isLoading && scripts.length === 0 ? (
+        <ResultsSkeleton />
+      ) : (
+        <ResultsSection
+          scripts={scripts}
+          onRegenerate={handleGenerate}
+          isLoading={isLoading}
+        />
+      )}
 
       {/* Empty state */}
-      {!isLoading && scripts.length === 0 && !error && (
+      {!isLoading && scripts.length === 0 && !error && !limitReached && (
         <div className="mx-auto max-w-md text-center text-gray-500">
           <div className="mb-4 text-4xl">🎬</div>
           <p className="text-sm">
@@ -198,13 +203,8 @@ function Home() {
         {isClient ? (
           <AuthenticatedHome />
         ) : (
-          /* SSR placeholder — show a loading skeleton */
-          <div className="mx-auto mt-16 max-w-lg text-center">
-            <div className="mb-4 text-4xl">🎬</div>
-            <p className="text-sm text-gray-500">
-              Loading ViralScripts...
-            </p>
-          </div>
+          /* SSR placeholder — polished skeleton UI */
+          <PageSkeleton />
         )}
 
         {/* Stats bar */}
