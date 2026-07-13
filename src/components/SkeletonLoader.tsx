@@ -1,12 +1,12 @@
 /**
  * Reusable skeleton loader components for polished loading states.
- * Uses Tailwind's animate-pulse with dark-mode-appropriate colors.
+ * Uses a custom shimmer animation for a smooth, premium feel.
  */
 
 function SkeletonBar({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`animate-pulse rounded-lg bg-gray-800/60 ${className}`}
+      className={`animate-shimmer rounded-lg ${className}`}
     />
   );
 }
@@ -15,7 +15,7 @@ function SkeletonCircle({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   const sizes = { sm: "h-8 w-8", md: "h-12 w-12", lg: "h-16 w-16" };
   return (
     <div
-      className={`animate-pulse rounded-full bg-gray-800/60 ${sizes[size]}`}
+      className={`animate-shimmer rounded-full ${sizes[size]}`}
     />
   );
 }
@@ -32,8 +32,8 @@ export function PageSkeleton() {
             <SkeletonBar className="h-4 w-36" />
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-9 w-20 animate-pulse rounded-lg bg-gray-800/60" />
-            <div className="h-9 w-20 animate-pulse rounded-lg bg-gray-800/60" />
+            <div className="animate-shimmer h-9 w-20 rounded-lg" />
+            <div className="animate-shimmer h-9 w-20 rounded-lg" />
           </div>
         </div>
       </div>
@@ -55,7 +55,7 @@ export function PageSkeleton() {
 
       {/* Empty state placeholder */}
       <div className="mx-auto mt-16 max-w-md text-center">
-        <div className="mb-4 inline-flex h-16 w-16 animate-pulse items-center justify-center rounded-2xl bg-gray-800/60" />
+        <div className="mb-4 inline-flex h-16 w-16 animate-shimmer items-center justify-center rounded-2xl" />
         <SkeletonBar className="mx-auto h-4 w-64" />
       </div>
     </div>
