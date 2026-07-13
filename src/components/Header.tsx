@@ -14,6 +14,12 @@ function AuthButtons() {
           target="_blank"
           rel="noopener noreferrer"
           className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-3 py-1.5 text-xs font-semibold text-white shadow-lg shadow-violet-600/20 transition-all hover:from-violet-500 hover:to-fuchsia-500 sm:px-4 sm:py-2 sm:text-sm"
+          onClick={() => {
+            navigator.sendBeacon?.("/api/analytics/track", new Blob(
+              [JSON.stringify({ eventType: "upgrade_click" })],
+              { type: "application/json" }
+            ));
+          }}
         >
           Upgrade
         </a>

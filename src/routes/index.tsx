@@ -7,6 +7,7 @@ import GeneratorForm from "~/components/GeneratorForm";
 import ResultsSection from "~/components/ResultsSection";
 import UpgradePrompt from "~/components/UpgradePrompt";
 import WaitlistForm from "~/components/WaitlistForm";
+import StatsBar from "~/components/StatsBar";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -182,6 +183,11 @@ function Home() {
 
   useEffect(() => {
     setIsClient(true);
+    // Fire-and-forget page view tracking
+    navigator.sendBeacon?.("/api/analytics/track", new Blob(
+      [JSON.stringify({ eventType: "page_view" })],
+      { type: "application/json" }
+    ));
   }, []);
 
   return (
@@ -201,8 +207,11 @@ function Home() {
           </div>
         )}
 
+        {/* Stats bar */}
+        {isClient && <StatsBar />}
+
         {/* Footer */}
-        <footer className="mt-16 text-center text-xs text-gray-600">
+        <footer className="mt-8 text-center text-xs text-gray-600">
           ViralScripts &mdash; Stop guessing. Start going viral.
         </footer>
       </div>
