@@ -3,7 +3,7 @@
 @layer base {
   html,
   body {
-    @apply bg-gray-950 text-gray-100 antialiased;
+    @apply bg-white text-gray-900 antialiased;
   }
 }
 
@@ -23,18 +23,6 @@
   animation: fade-in-up 0.4s ease-out both;
 }
 
-@utility animate-delay-100 {
-  animation-delay: 0.1s;
-}
-
-@utility animate-delay-200 {
-  animation-delay: 0.2s;
-}
-
-@utility animate-delay-300 {
-  animation-delay: 0.3s;
-}
-
 /* Shimmer skeleton loading animation */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
@@ -42,7 +30,7 @@
 }
 
 @utility animate-shimmer {
-  background: linear-gradient(90deg, #1f2937 25%, #374151 50%, #1f2937 75%);
+  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }

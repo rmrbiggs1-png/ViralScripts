@@ -1,218 +1,127 @@
 import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useAuth, SignInButton } from "@clerk/clerk-react";
-import type { GenerateRequest, Script, Tone } from "~/types";
-import Header from "~/components/Header";
-import GeneratorForm from "~/components/GeneratorForm";
-import ResultsSection from "~/components/ResultsSection";
-import UpgradePrompt from "~/components/UpgradePrompt";
-import WaitlistForm from "~/components/WaitlistForm";
-import StatsBar from "~/components/StatsBar";
-import { PageSkeleton, ResultsSkeleton } from "~/components/SkeletonLoader";
+import type { ToneOption } from "~/components/HostReplyForm";
+import HostReplyHeader from "~/components/HostReplyHeader";
+import HostReplyForm from "~/components/HostReplyForm";
+import MessageCard from "~/components/MessageCard";
+
+interface GuestMessage {
+  label: string;
+  text: string;
+}
 
 export const Route = createFileRoute("/")({
   component: Home,
 });
 
-function AuthenticatedHome() {
-  // This component is only rendered on the client, so Clerk hooks are safe
-  const { isSignedIn, userId } = useAuth();
+function Home() {
+  const [situation, setSituation] = useState("");
+  const [details, setDetails] = useState("");
+  const [tone, setTone] = useState<ToneOption>("Warm");
 
-  // Form state (lifted up so regenerate can reuse it)
-  const [product, setProduct] = useState("");
-  const [audience, setAudience] = useState("");
-  const [painPoint, setPainPoint] = useState("");
-  const [tone, setTone] = useState<Tone>("Energetic");
-
-  // App state
-  const [scripts, setScripts] = useState<Script[]>([]);
+  const [messages, setMessages] = useState<GuestMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [limitReached, setLimitReached] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   async function handleGenerate() {
-    if (!isSignedIn) return;
-
-    const data: GenerateRequest = {
-      product: product.trim(),
-      audience: audience.trim(),
-      painPoint: painPoint.trim(),
-      tone,
-      userId: userId || undefined,
-    };
-
     setIsLoading(true);
     setError(null);
-    setLimitReached(false);
 
     try {
-      const res = await fetch("/api/generate", {
+      const res = await fetch("http://localhost:3002/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          situation: situation.trim(),
+          tone,
+          details: details.trim(),
+        }),
       });
 
       if (!res.ok) {
-        if (res.status === 402 || res.status === 429) {
-          setLimitReached(true);
-          return;
-        }
         const msg = await res.text().catch(() => "");
         throw new Error(msg || `Server responded with ${res.status}`);
       }
 
-      const result: Script[] = await res.json();
-      setScripts(result);
-
-      // Fire-and-forget analytics tracking
-      fetch("/api/analytics/track", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventType: "generate",
-          product: data.product,
-          audience: data.audience,
-          painPoint: data.painPoint,
-          tone: data.tone,
-          userId: data.userId,
-        }),
-      }).catch(() => {});
+      const result: GuestMessage[] = await res.json();
+      setMessages(result);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Something went wrong";
+      const message = err instanceof Error ? err.message : "Something went wrong";
       setError(message);
     } finally {
       setIsLoading(false);
     }
   }
 
-  if (!isSignedIn) {
-    return (
-      <div className="mx-auto mt-16 max-w-lg text-center">
-        <div className="mb-6 text-5xl">🔐</div>
-        <h2 className="mb-3 text-2xl font-bold text-gray-100">
-          Sign in to generate scripts
-        </h2>
-        <p className="mb-8 text-gray-400">
-          Create viral TikTok & Reels scripts in seconds. Sign in or create
-          a free account to get started.
-        </p>
-        <SignInButton mode="modal">
-          <button
-            type="button"
-            className="rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-3 text-base font-semibold text-white shadow-lg shadow-violet-600/25 transition-all hover:from-violet-500 hover:to-fuchsia-500 active:scale-[0.98]"
-          >
-            Sign In to Get Started
-          </button>
-        </SignInButton>
-
-        {/* Divider */}
-        <div className="my-10 flex items-center gap-3">
-          <div className="h-px flex-1 bg-gray-800" />
-          <span className="text-xs font-medium text-gray-500">or join the waitlist</span>
-          <div className="h-px flex-1 bg-gray-800" />
-        </div>
-
-        {/* Waitlist */}
-        <div className="mx-auto max-w-sm text-left">
-          <p className="mb-4 text-center text-sm text-gray-400">
-            Get early access and exclusive updates
-          </p>
-          <WaitlistForm />
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <>
-      <GeneratorForm
-        product={product}
-        audience={audience}
-        painPoint={painPoint}
-        tone={tone}
-        onProductChange={setProduct}
-        onAudienceChange={setAudience}
-        onPainPointChange={setPainPoint}
-        onToneChange={setTone}
-        onSubmit={handleGenerate}
-        isLoading={isLoading}
-      />
+    <div className="min-h-dvh bg-gradient-to-br from-gray-50 via-white to-indigo-50/30 px-4 py-10 sm:px-6 sm:py-16">
+      <div className="mx-auto max-w-5xl">
+        <HostReplyHeader />
 
-      {/* Error state */}
-      {error && !limitReached && (
-        <div className="mx-auto mb-8 max-w-2xl rounded-lg border border-red-800/50 bg-red-900/20 px-5 py-4 text-center">
-          <p className="text-sm text-red-400">
-            <span className="font-semibold">Error:</span> {error}
-          </p>
-          <p className="mt-1 text-xs text-red-500">
-            Make sure the backend server is running on port 3001.
-          </p>
-        </div>
-      )}
-
-      {/* Limit reached — show upgrade prompt */}
-      {limitReached && (
-        <div className="mb-8">
-          <UpgradePrompt message="You've used all your free generations this month. Upgrade to keep creating viral scripts!" />
-        </div>
-      )}
-
-      {/* Results */}
-      {isLoading && scripts.length === 0 ? (
-        <ResultsSkeleton />
-      ) : (
-        <ResultsSection
-          scripts={scripts}
-          onRegenerate={handleGenerate}
+        <HostReplyForm
+          situation={situation}
+          details={details}
+          tone={tone}
+          onSituationChange={setSituation}
+          onDetailsChange={setDetails}
+          onToneChange={setTone}
+          onSubmit={handleGenerate}
           isLoading={isLoading}
         />
-      )}
 
-      {/* Empty state */}
-      {!isLoading && scripts.length === 0 && !error && !limitReached && (
-        <div className="mx-auto max-w-md text-center text-gray-500">
-          <div className="mb-4 text-4xl">🎬</div>
-          <p className="text-sm">
-            Enter your product details above and generate 3 ready-to-film
-            TikTok & Reels scripts in seconds.
-          </p>
-        </div>
-      )}
-    </>
-  );
-}
-
-function Home() {
-  const [isClient, setIsClient] = useState(false);
-
-  useEffect(() => {
-    setIsClient(true);
-    // Fire-and-forget page view tracking
-    navigator.sendBeacon?.("/api/analytics/track", new Blob(
-      [JSON.stringify({ eventType: "page_view" })],
-      { type: "application/json" }
-    ));
-  }, []);
-
-  return (
-    <div className="min-h-dvh bg-gray-950 px-4 py-8 sm:px-6 sm:py-12">
-      <div className="mx-auto max-w-6xl">
-        <Header />
-
-        {isClient ? (
-          <AuthenticatedHome />
-        ) : (
-          /* SSR placeholder — polished skeleton UI */
-          <PageSkeleton />
+        {/* Error state */}
+        {error && (
+          <div className="mx-auto mb-8 max-w-2xl rounded-lg border border-red-200 bg-red-50 px-5 py-4 text-center">
+            <p className="text-sm text-red-600">
+              <span className="font-semibold">Error:</span> {error}
+            </p>
+            <p className="mt-1 text-xs text-red-400">
+              Make sure the backend server is running on port 3002.
+            </p>
+          </div>
         )}
 
-        {/* Stats bar */}
-        {isClient && <StatsBar />}
+        {/* Results */}
+        {messages.length > 0 && (
+          <div className="mx-auto max-w-4xl">
+            <h2 className="mb-6 text-center text-lg font-semibold text-gray-800">
+              Your Guest Messages
+            </h2>
+            <div className="grid gap-5 sm:grid-cols-2">
+              {messages.map((msg, i) => (
+                <MessageCard key={i} message={msg.text} label={msg.label} />
+              ))}
+            </div>
+            <div className="mt-6 text-center">
+              <button
+                onClick={handleGenerate}
+                disabled={isLoading}
+                className="rounded-lg border border-gray-200 bg-white px-5 py-2 text-sm font-medium text-gray-600 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50 active:scale-[0.98]"
+              >
+                {isLoading ? "Generating..." : "↻ Regenerate"}
+              </button>
+            </div>
+          </div>
+        )}
 
-        {/* Footer */}
-        <footer className="mt-8 text-center text-xs text-gray-600">
-          ViralScripts &mdash; Stop guessing. Start going viral.
+        {/* Empty state */}
+        {!isLoading && messages.length === 0 && !error && (
+          <div className="mx-auto max-w-md text-center text-gray-400">
+            <div className="mb-4 text-4xl">✉️</div>
+            <p className="text-sm">
+              Describe the situation and any details — we'll write 2 warm,
+              professional guest messages you can send in seconds.
+            </p>
+          </div>
+        )}
+
+        <footer className="mt-16 text-center text-xs text-gray-400">
+          HostReply &mdash; Professional guest messages, written in seconds.
         </footer>
       </div>
     </div>
